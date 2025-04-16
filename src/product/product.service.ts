@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from './entities/product.entity';
 import { PaginationDTO } from '../common/dto/pagination.dto';
+import { KafkaService } from 'src/kafka/kafka.service';
 
 
 @Injectable()
@@ -16,7 +17,8 @@ export class ProductService implements IProductService {
 
   constructor(
     @InjectRepository(Product)
-    private readonly productRepository: Repository<Product>
+    private readonly productRepository: Repository<Product>,
+    private readonly kafkaService: KafkaService,
   ) {
 
   }
@@ -27,7 +29,9 @@ export class ProductService implements IProductService {
 
       await this.productRepository.save(newProduct);
 
-      console.log(typeof newProduct.price)
+      
+      this.kafkaService.publishMessage('product-created', JSON.stringify(newProduct));
+      
       return {
         id: newProduct.id,
         name: newProduct.name,
@@ -89,6 +93,7 @@ export class ProductService implements IProductService {
 
     try {
       await this.productRepository.save(product);
+      this.kafkaService.publishMessage('product-updated', JSON.stringify(product));
       return product;
 
     } catch (error) {
@@ -99,14 +104,17 @@ export class ProductService implements IProductService {
   }
 
   async removeProduct(id: string) {
-
+    
     const product = await this.productRepository.findOneBy({ id });
+    let message: string;
     if (!product) {
       throw new NotFoundException('Product not found');
     }
+    message = `Product remove with name:  ${product.name} and id: ${product.id}`;
     await this.productRepository.remove(product);
+    this.kafkaService.publishMessage('product-deleted', message);
 
-    return `This action removes a ${product.name} product`;
+    return message;
   }
 
   private handleDBErrors(error: any) {

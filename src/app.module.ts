@@ -3,6 +3,8 @@ import { ProductModule } from './product/product.module';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CommonModule } from './common/common.module';
+import { KafkaModule } from './kafka/kafka.module';
+import { CacheModule } from './cache/cache.module';
 
 @Module({
   imports: [ProductModule,
@@ -23,6 +25,8 @@ import { CommonModule } from './common/common.module';
       }
     ),
     CommonModule,
+    KafkaModule,
+    CacheModule,
   ],
   controllers: [],
   providers: [],
