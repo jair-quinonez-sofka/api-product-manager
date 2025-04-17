@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 import { Product } from './entities/product.entity';
 import { PaginationDTO } from '../common/dto/pagination.dto';
 import { KafkaService } from 'src/kafka/kafka.service';
+import { CacheService } from '../cache/cache.service';
 
 
 @Injectable()
@@ -19,6 +20,7 @@ export class ProductService implements IProductService {
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
     private readonly kafkaService: KafkaService,
+    private readonly cacheService: CacheService,
   ) {
 
   }
@@ -48,12 +50,19 @@ export class ProductService implements IProductService {
 
   async findAllProducts(pagination: PaginationDTO) {
     const { limit = 25, offset = 0 } = pagination;
+    const cacheKey = `products-list-${offset}-${limit}`;
+
+    const cachedProducts = await this.cacheService.getData(cacheKey);
+    if (cachedProducts) {
+      return cachedProducts;
+    }
+
     try {
       const productsFound = await this.productRepository.find({
         take: limit,
         skip: offset,
       });
-      return {
+      const result = {
         size: productsFound.length,
         products: productsFound.map(product => {
           return {
@@ -65,6 +74,12 @@ export class ProductService implements IProductService {
           };
         })
       }
+      await this.cacheService.setData(cacheKey, result, 3600);
+
+      return result;
+
+    
+    
 
     } catch (error) {
       this.handleDBErrors(error);
